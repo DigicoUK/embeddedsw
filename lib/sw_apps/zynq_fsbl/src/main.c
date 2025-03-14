@@ -6,7 +6,7 @@
 
 /*****************************************************************************/
 /**
-*
+* TEST TEST TEST TEST
 * @file main.c
 *
 * The main file for the First Stage Boot Loader (FSBL).
