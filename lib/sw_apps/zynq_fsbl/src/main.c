@@ -106,6 +106,7 @@
 
 /***************************** Include Files *********************************/
 
+#include "test01.h"
 #include "fsbl.h"
 #include "qspi.h"
 #include "nand.h"
@@ -237,6 +238,18 @@ int main(void)
 	 * PCW initialization for MIO,PLL,CLK and DDR
 	 */
 	Status = ps7_init();
+
+	/*
+     * Read bootmode register
+     */
+    BootModeRegister = Xil_In32(BOOT_MODE_REG);
+    BootModeRegister &= BOOT_MODES_MASK;
+
+	// Run DDR Test only if booting from QSPI
+	if (BootModeRegister == QSPI_MODE) {
+		ddr_test();
+	}
+
 	if (Status != FSBL_PS7_INIT_SUCCESS) {
 		fsbl_printf(DEBUG_GENERAL,"PS7_INIT_FAIL : %s\r\n",
 						getPS7MessageInfo(Status));

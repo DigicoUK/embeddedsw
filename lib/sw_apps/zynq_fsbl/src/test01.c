@@ -2930,26 +2930,38 @@ int ddr_test(void)
 	XGpioPs_CfgInitialize(&GPIO_driver, configPtr, configPtr->BaseAddr);
 
 
-	XGpioPs_SetDirectionPin(&GPIO_driver, 0, 1);
-	XGpioPs_SetOutputEnablePin(&GPIO_driver, 0, 1);
+	XGpioPs_SetDirectionPin(&GPIO_driver, 8, 1);
+	XGpioPs_SetOutputEnablePin(&GPIO_driver, 8, 1);
 
-	XGpioPs_WritePin(&GPIO_driver, 0, 0);
+	XGpioPs_WritePin(&GPIO_driver, 8, 0);
 
 	u8 byte = 0;
 	u8 led_state = 1;
 	// wait idly until kicked off by test application
-	while(byte != 0x55)
+	while(byte < 0x55 || byte > 0x57)
 	{
 		for( int i = 0; i < 50000000; i++ )
 		{
 			__asm__("nop");
 		}
 
-		XGpioPs_WritePin(&GPIO_driver, 0, led_state);
+		XGpioPs_WritePin(&GPIO_driver, 8, led_state);
 		led_state = !led_state;
 
 
-//		byte = inbyte();
+		byte = inbyte();
+	}
+
+	int mem_size; // in MB
+	switch(byte){
+	case 0x56:
+		mem_size = 511;
+		break;
+	case 0x57:
+		mem_size = 1023;
+		break;
+	default:
+		mem_size = 255;
 	}
 
 
@@ -2958,7 +2970,7 @@ int ddr_test(void)
 	printf("-----------------------------------------------------------------\n");
 	printf(" ## Memory Tests ##\r\n");
 	printf(" Bus Width = %d,   XADC Temperature = %g\r\n", bus_width, get_xadc_temperature());
-	printf(" Test 511MB length from address 0x100000\r\n");
+	printf(" Test %dMB length from address 0x100000\r\n", mem_size);
 	printf(" Measure Read Data Eye\r\n");
 	printf(" Measure Write Data Eye\r\n");
 
@@ -2983,10 +2995,10 @@ int ddr_test(void)
 		test_size   = 16*mbyte;
 	}
 
-	printf("\r\nStarting Memory Test - Testing 511MB length from address 0x100000...\r\n");
-	verbose = 1 + printerr*8;
+  printf("\r\nStarting Memory Test - Testing %dMB length from address 0x100000...\r\n", mem_size);
+  verbose = 1 + printerr*8;
 	printMemTestHeader();
-	memtest_all(mbyte, 511*mbyte, 0x7fff, 0);
+	memtest_all(mbyte, mem_size*mbyte, 0x7fff, 0);
 
 
 	/* Eye Measurement Tests */
@@ -3008,11 +3020,14 @@ int ddr_test(void)
 	measure_read_eye(&gresult[0], mbyte, mbyte*testsize_scl, fast, istep);
 
 	printf("\r\nDDR Test Complete\r\n");
+	fflush(stdout);
+	sleep(500); // wait for the pipes to flush
 
-	// Reboot to hardware test
-    SlcrUnlock();
-    Xil_Out32( XDCFG_MULTIBOOT_ADDR_REG, 0x1000000 );		//Set Multi-Boot Address to IMAGE 2
-    SoftReset();
+	// // Reboot to hardware test
+  //   SlcrUnlock();
+  //   Xil_Out32( XDCFG_MULTIBOOT_ADDR_REG, 0x1000000 );		//Set Multi-Boot Address to IMAGE 2
+  //   SoftReset();
+
 
 
 	return 0;
