@@ -2370,17 +2370,18 @@ int measure_read_eye(int *result, int test_start, int test_size, int fast, int i
         break;
       dqs_ratio = i;
 
+      printf(".");
       REG_WRITE(MAILBOX_STAT, i);
 
       REG_WRITE(R00, ctrl_reg & 0xfffffffe);
-
+      printf(".");
       for (j=0; j<4; j++)
       {
         REG_WRITE(R50 + 4*j, dqs_ratio );  // always needed
         REG_WRITE(R5A + 4*j, dqs_ratio + fwsr[j] );  // needed for ddr2 or manual
       }
       REG_WRITE(R00, ctrl_reg);
-
+      printf(".");
       // wait a while
       noop(1000000);
 
@@ -2389,9 +2390,9 @@ int measure_read_eye(int *result, int test_start, int test_size, int fast, int i
         sel = (fast) ? 0x0180 : 0x0E00;
       else
         sel = (fast) ? 0x0E00 : 0x1E60;
-
+      printf(".");
       rc = memtest_all(test_start, test_size, sel, 0);
-
+      printf(".");
       if (verbose & 2)
       {
         printf("\rTest offset %3d   %8d        [%8d] [%8d] [%8d] [%8d]    %g\n",
@@ -2403,6 +2404,7 @@ int measure_read_eye(int *result, int test_start, int test_size, int fast, int i
       {
         if (errcnt[j] == 0)
         {
+          printf("%d", j);
           mineye[j] = min(mineye[j], dqs_ratio);
           maxeye[j] = max(maxeye[j], dqs_ratio);
         }
@@ -2938,7 +2940,8 @@ int ddr_test(void)
 	u8 byte = 0;
 	u8 led_state = 1;
 	// wait idly until kicked off by test application
-	while(byte < 0x55 || byte > 0x57)
+	printf("Waiting for DDR test start signal\n");
+	while(byte < 0x54 || byte > 0x57)
 	{
 		for( int i = 0; i < 50000000; i++ )
 		{
@@ -2960,6 +2963,11 @@ int ddr_test(void)
 	case 0x57:
 		mem_size = 1023;
 		break;
+  case 0x54:
+    printf("\r\nDDR Test Complete\r\n");
+    fflush(stdout);
+    sleep(3);
+    return 0; // Skip the memory test
 	default:
 		mem_size = 255;
 	}
@@ -2995,8 +3003,8 @@ int ddr_test(void)
 		test_size   = 16*mbyte;
 	}
 
-  printf("\r\nStarting Memory Test - Testing %dMB length from address 0x100000...\r\n", mem_size);
-  verbose = 1 + printerr*8;
+	printf("\r\nStarting Memory Test - Testing %dMB length from address 0x100000...\r\n", mem_size);
+	verbose = 1 + printerr*8;
 	printMemTestHeader();
 	memtest_all(mbyte, mem_size*mbyte, 0x7fff, 0);
 
@@ -3021,14 +3029,17 @@ int ddr_test(void)
 
 	printf("\r\nDDR Test Complete\r\n");
 	fflush(stdout);
-	sleep(500); // wait for the pipes to flush
+	sleep(3); // wait for the pipes to flush
 
 	// // Reboot to hardware test
   //   SlcrUnlock();
   //   Xil_Out32( XDCFG_MULTIBOOT_ADDR_REG, 0x1000000 );		//Set Multi-Boot Address to IMAGE 2
   //   SoftReset();
 
-
+  byte = 0;
+	while(byte != 0x66){
+		byte = inbyte();
+	}
 
 	return 0;
 }
