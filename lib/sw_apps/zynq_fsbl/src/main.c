@@ -114,6 +114,10 @@
 #include "sd.h"
 #include "pcap.h"
 #include "image_mover.h"
+#include "xil_io.h"
+#include "XGpioPs.h"
+#include "xscutimer.h"
+#include "xscugic.h"
 #include "xparameters.h"
 #include "xil_cache.h"
 #include "xil_exception.h"
@@ -138,6 +142,7 @@
 #ifdef RSA_SUPPORT
 #include "rsa.h"
 #endif
+
 
 /************************** Constant Definitions *****************************/
 
@@ -213,6 +218,76 @@ extern u8 BitstreamFlag;
 #if defined(XPAR_PS7_QSPI_LINEAR_0_S_AXI_BASEADDR) || defined(XPAR_PS7_QSPI_LINEAR_0_BASEADDRESS)
 extern u32 QspiFlashSize;
 #endif
+
+#define LED_PIN_NUMBER 8
+
+static uint8_t led_state = 0;
+static XGpioPs X_Ps_driver;
+static XScuTimer timer;
+XScuGic interruptController;
+XScuGic_Config *GicConfigPtr;
+
+void* LEDFlashTask(void *CallbackRef)
+{
+	led_state = !led_state;
+	XGpioPs_WritePin(&X_Ps_driver, LED_PIN_NUMBER, led_state);
+	XScuTimer_ClearInterruptStatus(&timer);
+}
+
+
+void Create_LED_Flash_Timer()
+{
+	XGpioPs_Config* configPtr;
+	uint32_t status;
+
+	configPtr = XGpioPs_LookupConfig(XPAR_PS7_GPIO_0_DEVICE_ID);
+	status = XGpioPs_CfgInitialize(&X_Ps_driver, configPtr, configPtr->BaseAddr);
+
+	if ( status != XST_SUCCESS ){
+		xil_printf("PS GPIO Config Failure \n\r");
+	}
+
+	status = XGpioPs_SelfTest( &X_Ps_driver );
+	if ( status != XST_SUCCESS ){
+		xil_printf("PS GPIO Self Test Failure \n\r");
+	}
+
+	XGpioPs_SetDirectionPin(&X_Ps_driver, LED_PIN_NUMBER, 1);
+	XGpioPs_SetOutputEnablePin(&X_Ps_driver, LED_PIN_NUMBER, 1);
+	XGpioPs_WritePin(&X_Ps_driver, LED_PIN_NUMBER, led_state);
+
+	static uint32_t clock_speed = XPAR_CPU_CORTEXA9_0_CPU_CLK_FREQ_HZ/2;
+	uint32_t m_load = 0;
+	XScuTimer_Config* timer_config = XScuTimer_LookupConfig(XPAR_XSCUTIMER_0_DEVICE_ID);
+	XScuTimer_CfgInitialize(&timer, timer_config, timer_config->BaseAddr );
+
+	GicConfigPtr = XScuGic_LookupConfig(XPAR_SCUGIC_SINGLE_DEVICE_ID);
+	status = XScuGic_CfgInitialize(&interruptController, GicConfigPtr, GicConfigPtr->CpuBaseAddress); // Initialize the driver
+	Xil_ExceptionRegisterHandler(XIL_EXCEPTION_ID_INT, (Xil_ExceptionHandler) XScuGic_InterruptHandler, &interruptController);
+	Xil_ExceptionEnable();
+
+	XScuTimer_EnableAutoReload(&timer);
+	/* Set prescaler and load values */
+	// This is set to cycle once a second
+	XScuTimer_SetPrescaler(&timer, 0);
+	XScuTimer_LoadTimer(&timer, ( XPAR_CPU_CORTEXA9_0_CPU_CLK_FREQ_HZ / 2UL ) / 1UL);
+
+	status = XScuGic_Connect(
+				&interruptController,
+				XPAR_SCUTIMER_INTR,
+				(Xil_InterruptHandler) LEDFlashTask,
+				&LEDFlashTask);
+
+
+	/* Enable interrupts */
+	XScuTimer_EnableInterrupt(&timer);
+	XScuGic_Enable( &interruptController, XPAR_SCUTIMER_INTR );
+	XScuTimer_Start(&timer);
+
+	xil_printf("LED timer created\r\n");
+}
+
+
 /*****************************************************************************/
 /**
 *
@@ -245,8 +320,11 @@ int main(void)
     BootModeRegister = Xil_In32(BOOT_MODE_REG);
     BootModeRegister &= BOOT_MODES_MASK;
 
+
 	// Run DDR Test only if booting from QSPI
 	if (BootModeRegister == QSPI_MODE) {
+		sleep(10); // wait so the messages come across serial
+		Create_LED_Flash_Timer();
 		ddr_test();
 	}
 

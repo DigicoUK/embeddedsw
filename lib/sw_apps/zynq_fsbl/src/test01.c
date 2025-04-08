@@ -2891,9 +2891,6 @@ int ddr_test(void)
 	int test_start, test_size;
 	int imin, imax, istep, testsize_scl, fast, fix_center, printerr;
 
-
-
-
 	// unlock slcr
 	REG_WRITE(SLCR_LOW_BASE+SLCR_UNLOCK,  SLCR_UNLOCK_VALUE);
 	ddr_nonsecure();
@@ -2940,7 +2937,7 @@ int ddr_test(void)
 	u8 byte = 0;
 	u8 led_state = 1;
 	// wait idly until kicked off by test application
-	printf("Waiting for DDR test start signal\n");
+	printf("Waiting for DDR test start signal -- test01.c (FSBL)\n");
 	while(byte < 0x54 || byte > 0x57)
 	{
 		for( int i = 0; i < 50000000; i++ )
