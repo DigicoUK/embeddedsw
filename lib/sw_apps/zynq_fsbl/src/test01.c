@@ -2961,10 +2961,10 @@ int ddr_test(void)
 		mem_size = 1023;
 		break;
   case 0x54:
-    printf("\r\nDDR Test Complete\r\n");
-    fflush(stdout);
-    sleep(3);
-    return 0; // Skip the memory test
+		printf("\r\nDDR Test Complete\r\n");
+		fflush(stdout);
+		sleep(3);
+		return 0; // Skip the memory test
 	default:
 		mem_size = 255;
 	}

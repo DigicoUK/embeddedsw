@@ -234,6 +234,13 @@ void* LEDFlashTask(void *CallbackRef)
 	XScuTimer_ClearInterruptStatus(&timer);
 }
 
+void destroy_LED_Flash()
+{
+	XScuTimer_Stop(&timer);
+	XScuTimer_DisableInterrupt(&timer);
+	XScuGic_Disable( &interruptController, XPAR_SCUTIMER_INTR );
+	XScuGic_Disconnect(&interruptController, XPAR_SCUTIMER_INTR);
+}
 
 void Create_LED_Flash_Timer()
 {
@@ -326,6 +333,7 @@ int main(void)
 		sleep(10); // wait so the messages come across serial
 		Create_LED_Flash_Timer();
 		ddr_test();
+		destroy_LED_Flash();
 	}
 
 	if (Status != FSBL_PS7_INIT_SUCCESS) {
